@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PRISM – MIC AIML Build Cycle · Team 3</title>
+<style>
+  /* ── Colour palette (MIC official) ─────────────────────── */
+  :root {
+    --navy:   #1F2A44;
+    --slate:  #44546A;
+    --blue:   #1D6FB8;
+    --orange: #E8622D;
+    --rule:   #D8DCE3;
+    --grey:   #8A94A6;
+    --bg:     #FFFFFF;
+  }
+
+  /* ── Global ─────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 11pt; }
+  body {
+    font-family: Calibri, 'Segoe UI', Arial, sans-serif;
+    color: var(--navy);
+    background: var(--bg);
+    line-height: 1.55;
+  }
+
+  /* ── Page wrapper (A4-like) ──────────────────────────────── */
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto 16mm;
+    padding: 18mm 18mm 14mm;
+    background: #fff;
+    page-break-after: always;
+    position: relative;
+  }
+
+  /* ── Running header (all pages except cover) ─────────────── */
+  .running-header {
+    font-size: 7.5pt;
+    color: var(--grey);
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 4px;
+    margin-bottom: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .running-header span { color: var(--blue); font-weight: 600; }
+
+  /* ── Running footer ──────────────────────────────────────── */
+  .running-footer {
+    position: absolute;
+    bottom: 10mm;
+    left: 18mm; right: 18mm;
+    font-size: 7pt;
+    color: var(--grey);
+    border-top: 1px solid var(--rule);
+    padding-top: 4px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* ── Section headings ────────────────────────────────────── */
+  .section-number {
+    font-size: 7.5pt;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--blue);
+    margin-bottom: 2px;
+  }
+  h2 {
+    font-size: 16pt;
+    font-weight: 700;
+    color: var(--navy);
+    margin-bottom: 12px;
+    border-bottom: 2.5px solid var(--blue);
+    padding-bottom: 5px;
+  }
+  h3 {
+    font-size: 10pt;
+    font-weight: 700;
+    color: var(--slate);
+    margin: 14px 0 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+  }
+  p { margin-bottom: 8px; }
+
+  /* ── Kicker / label pills ────────────────────────────────── */
+  .kicker {
+    display: inline-block;
+    font-size: 7pt;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #fff;
+    background: var(--blue);
+    border-radius: 3px;
+    padding: 1px 7px;
+    margin-bottom: 6px;
+  }
+
+  /* ── Tables ──────────────────────────────────────────────── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9.5pt;
+    margin-top: 8px;
+  }
+  thead tr { background: var(--navy); color: #fff; }
+  thead th {
+    padding: 7px 10px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 8.5pt;
+    letter-spacing: 0.5px;
+  }
+  tbody tr:nth-child(even) { background: #F3F5F8; }
+  tbody td { padding: 7px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  tbody td:first-child { font-weight: 600; color: var(--slate); white-space: nowrap; }
+
+  .id-col { width: 38px; text-align: center; color: var(--blue) !important; }
+
+  /* ── Highlight row (project leads) ───────────────────────── */
+  tr.lead-row td { background: #FFF4EF !important; }
+  tr.lead-row td:first-child { color: var(--orange) !important; }
+  .badge-lead {
+    display: inline-block;
+    font-size: 7pt;
+    font-weight: 700;
+    color: var(--orange);
+    border: 1px solid var(--orange);
+    border-radius: 3px;
+    padding: 0px 5px;
+    margin-left: 5px;
+  }
+
+  /* ── Inline definition rows ──────────────────────────────── */
+  .def-table { border: none; }
+  .def-table td { border-bottom: 1px solid var(--rule); vertical-align: top; padding: 8px 10px; }
+  .def-table td:first-child {
+    width: 170px;
+    font-size: 8pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--slate);
+    white-space: nowrap;
+  }
+  .def-table td:last-child { color: var(--navy); }
+
+  /* ── Pipeline / flow ─────────────────────────────────────── */
+  .pipeline-flow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 0;
+    align-items: center;
+    background: #F3F5F8;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 14px 14px;
+    margin: 14px 0 18px;
+    font-size: 8.5pt;
+  }
+  .pip-step {
+    background: var(--navy);
+    color: #fff;
+    border-radius: 4px;
+    padding: 4px 9px;
+    font-weight: 600;
+    white-space: nowrap;
+    font-size: 8pt;
+  }
+  .pip-arrow {
+    color: var(--blue);
+    font-size: 13pt;
+    margin: 0 4px;
+    line-height: 1;
+  }
+
+  /* ── Architecture bullets ────────────────────────────────── */
+  ul.arch-list { list-style: none; padding: 0; margin-top: 8px; }
+  ul.arch-list li {
+    display: flex;
+    gap: 10px;
+    border-bottom: 1px solid var(--rule);
+    padding: 8px 6px;
+    font-size: 9.5pt;
+  }
+  ul.arch-list li strong {
+    min-width: 165px;
+    color: var(--blue);
+    font-weight: 700;
+  }
+
+  /* ── Subsystem integration map ───────────────────────────── */
+  .sub-flow {
+    font-size: 8.5pt;
+    color: var(--navy);
+  }
+  .sub-flow .arrow { color: var(--blue); font-weight: 700; }
+
+  /* ── Phase blocks ────────────────────────────────────────── */
+  .phase-badge {
+    display: inline-block;
+    background: var(--blue);
+    color: #fff;
+    font-size: 7.5pt;
+    font-weight: 700;
+    border-radius: 3px;
+    padding: 1px 8px;
+    margin-bottom: 3px;
+  }
+
+  /* ── Risk / metric callout ───────────────────────────────── */
+  .risk-tag {
+    display: inline-block;
+    font-size: 7pt;
+    background: #FFF4EF;
+    color: var(--orange);
+    border: 1px solid #F3C4AC;
+    border-radius: 3px;
+    padding: 0 5px;
+    font-weight: 700;
+  }
+
+  /* ── Cover page ──────────────────────────────────────────── */
+  .cover {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 297mm;
+    background: var(--navy);
+    color: #fff;
+    padding: 18mm 20mm;
+  }
+  .cover-top { }
+  .cover-brand {
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--grey);
+    margin-bottom: 6px;
+  }
+  .cover-mic {
+    font-size: 38pt;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1;
+    letter-spacing: -1px;
+  }
+  .cover-sub {
+    font-size: 11pt;
+    color: var(--grey);
+    margin-top: 4px;
+    letter-spacing: 1px;
+  }
+  .cover-divider {
+    width: 55px;
+    height: 4px;
+    background: var(--blue);
+    border-radius: 2px;
+    margin: 24px 0;
+  }
+  .cover-project-name {
+    font-size: 36pt;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1.1;
+  }
+  .cover-acronym {
+    font-size: 13pt;
+    font-weight: 700;
+    color: var(--blue);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-top: 6px;
+  }
+  .cover-tagline {
+    font-size: 11.5pt;
+    color: #BEC8D8;
+    margin-top: 14px;
+    max-width: 440px;
+    line-height: 1.5;
+  }
+  .cover-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px 30px;
+    margin-top: 44px;
+  }
+  .cover-meta-item label {
+    display: block;
+    font-size: 7pt;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--grey);
+    margin-bottom: 4px;
+  }
+  .cover-meta-item p {
+    font-size: 9.5pt;
+    color: #fff;
+    font-weight: 600;
+    margin: 0;
+  }
+  .cover-bottom {
+    font-size: 8pt;
+    color: var(--grey);
+    border-top: 1px solid #2E3E5A;
+    padding-top: 10px;
+  }
+
+  /* ── Stack badge ─────────────────────────────────────────── */
+  .stack-pill {
+    display: inline-block;
+    background: #EDF2FA;
+    color: var(--navy);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 1px 8px;
+    font-size: 8.5pt;
+    font-weight: 600;
+    margin: 1px 2px;
+  }
+
+  /* ── Print rules ─────────────────────────────────────────── */
+  @media print {
+    body { background: #fff; }
+    .page { margin: 0; width: 100%; page-break-after: always; }
+  }
+  @page {
+    size: A4;
+    margin: 0;
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════
+     COVER PAGE
+══════════════════════════════════════════════════════════════ -->
+<div class="page cover">
+  <div class="cover-top">
+    <div class="cover-brand">Microsoft Innovation Club &nbsp;·&nbsp; VIT Chennai</div>
+    <div class="cover-mic">MIC</div>
+    <div class="cover-sub">AIML Build Cycle &nbsp;·&nbsp; Team 3</div>
+    <div class="cover-divider"></div>
+    <div class="cover-project-name">PRISM</div>
+    <div class="cover-acronym">Property Recommendation &amp; Interior Space Matcher</div>
+    <div class="cover-tagline">
+      An AI-native real estate discovery platform that learns your exact preferences through a swipe-based interface and lets you visualise any interior—down to the furniture—before ever stepping inside.
+    </div>
+    <div class="cover-meta">
+      <div class="cover-meta-item">
+        <label>Project Heads</label>
+        <p>Ishan Mani Singh &amp; Daksh Sablok</p>
+      </div>
+      <div class="cover-meta-item">
+        <label>Project Team</label>
+        <p>10 Members &nbsp;·&nbsp; Team 3</p>
+      </div>
+      <div class="cover-meta-item">
+        <label>Document Type</label>
+        <p>Formal Project Document</p>
+      </div>
+      <div class="cover-meta-item">
+        <label>Date</label>
+        <p>October 2026</p>
+      </div>
+    </div>
+  </div>
+  <div class="cover-bottom">
+    MIC AIML Build Cycle &nbsp;·&nbsp; Team 3 &nbsp;·&nbsp; Project Heads: Ishan Mani Singh &amp; Daksh Sablok
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     PAGE 2 — SECTION 1: PROJECT BRIEF
+══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="running-header">
+    <span>MIC · AIML Build Cycle · Team 3</span>
+    <span>PRISM — Project Document</span>
+  </div>
+
+  <div class="section-number">Section 01</div>
+  <h2>Project Brief</h2>
+
+  <p>
+    The residential real estate market is oversaturated with platforms that present the same static data—price, square footage, and a few exterior photographs—leaving buyers unable to truly evaluate a property before visiting in person. <strong>PRISM</strong> solves this by transforming the search experience into a fast, AI-powered discovery loop. Using a Tinder-style swipe interface, a Reinforcement Learning engine silently learns each user's implicit preferences with every interaction. Simultaneously, a Computer Vision layer extracts granular interior features—lighting quality, furniture condition, and spatial proportions—from listing images, while a Diffusion-model visualiser lets users preview their own furniture inside any shortlisted space. The result is the first real estate platform that genuinely knows what you want and shows you exactly what you will get.
+  </p>
+
+  <table class="def-table">
+    <tbody>
+      <tr>
+        <td>Primary Objective</td>
+        <td>Build a swipe-first, AI-personalised real estate discovery platform that learns user preferences through implicit feedback and delivers an unprecedented interior view of every property through computer vision and generative AI.</td>
+      </tr>
+      <tr>
+        <td>Product Workflow</td>
+        <td>
+          User Onboarding &amp; Preference Seeding
+          → RL-Powered Swipe Feed
+          → Swipe Event Capture (left / right)
+          → Live Model Weight Update
+          → Refined Property Recommendations
+          → Interior Deep Dive (CV analysis)
+          → Furniture Fit Visualiser (Diffusion in-painting)
+          → Property Shortlist
+          → Decision / Contact Agent
+        </td>
+      </tr>
+      <tr>
+        <td>Core Output</td>
+        <td>A continuously personalised feed of property cards enriched with interior intelligence, floor-plan compatibility reports, and AI-generated furniture-in-room visualisations — culminating in a ranked shortlist the user can act on.</td>
+      </tr>
+      <tr>
+        <td>Target Audience</td>
+        <td>First-time home buyers, urban renters, NRIs conducting remote property searches, and real estate agents who need a faster, smarter way to match clients to listings.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="running-footer">
+    <span>MIC · AIML Build Cycle · Team 3</span>
+    <span>Page 2 of 11</span>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     PAGE 3 — SECTION 2: CORE CAPABILITIES
+══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="running-header">
+    <span>MIC · AIML Build Cycle · Team 3</span>
+    <span>PRISM — Project Document</span>
+  </div>
+
+  <div class="section-number">Section 02</div>
+  <h2>Core Capabilities</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th class="id-col">ID</th>
+        <th style="width:190px">Capability</th>
+        <th>Description &amp; Powering Technology</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="id-col">01</td>
+        <td>AI Swipe Engine</td>
+        <td>A Tinder-style swipe interface (left = dislike, right = like) backed by a contextual multi-armed bandit / Reinforcement Learning model. Every swipe event is streamed to the backend, the model weights are updated in real time, and the next batch of property cards is re-ranked accordingly. Powered by <strong>Python · PyTorch · Ray RLlib</strong>.</td>
+      </tr>
+      <tr>
+        <td class="id-col">02</td>
+        <td>Deep Interior Profiler</td>
+        <td>A Computer Vision pipeline that analyses raw listing images to extract structured interior features: ambient lighting score, existing furniture condition rating (new / worn / poor), estimated room dimensions, and overall cleanliness index. Provides buyers with objective interior intelligence that photographs alone cannot convey. Powered by <strong>PyTorch · Torchvision · custom CNN regression models</strong>.</td>
+      </tr>
+      <tr>
+        <td class="id-col">03</td>
+        <td>Furniture Fit Visualiser</td>
+        <td>Users describe desired furniture in natural language ("modern L-shaped grey sofa") or upload a photo of a piece they own. A diffusion-based in-painting model composites the item directly into the room photograph with realistic lighting and perspective. Separately, a spatial calculator checks whether the user's existing belongings (given dimensions) physically fit within the room's estimated blueprint. Powered by <strong>Stable Diffusion / ControlNet · HuggingFace Diffusers · PyTorch</strong>.</td>
+      </tr>
+      <tr>
+        <td class="id-col">04</td>
+        <td>Holistic Property Intelligence Cards</td>
+        <td>Each property card aggregates multi-source data at a glance: current price &amp; 12-month historical trend, locality safety rating (crime data), commute metrics (traffic congestion, distance to nearest metro / airport), and background check flags (prior legal disputes, owner history). Powered by <strong>Go · Redis · third-party real estate &amp; government APIs</strong>.</td>
+      </tr>
+      <tr>
+        <td class="id-col">05</td>
+        <td>Spatial Blueprint Analyser</td>
+        <td>Parses uploaded floor-plan images or architect PDFs to extract room polygons, dimensions, and flow topology. Used to power the furniture fit spatial calculator and to display an interactive blueprint overlay inside the property detail view. Powered by <strong>OpenCV · custom segmentation model · PyTorch</strong>.</td>
+      </tr>
+      <tr>
+        <td class="id-col">06</td>
+        <td>Cold-Start Resolution Engine</td>
+        <td>New users have no swipe history. A synthetic preference dataset—generated from realistic buyer persona archetypes—pre-warms the RL model so it can serve meaningful recommendations from the very first session. A short onboarding preference quiz further seeds initial weights before any real swipe data is collected. Powered by <strong>Python · synthetic data generation scripts · PyTorch</strong>.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="running-footer">
+    <span>MIC · AIML Build Cycle · Team 3</span>
+    <span>Page 3 of 11</span>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     PAGE 4 — SECTION 3: SYSTEM PIPELINE
+══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="running-header">
+    <span>MIC · AIML Build Cycle · Team 3</span>
+    <span>PRISM — Project Document</span>
+  </div>
+
+  <div class="section-number">Section 03</div>
+  <h2>System Pipeline</h2>
+
+  <p>
+    PRISM follows a closed feedback loop: user actions (swipes and prompts) drive model updates, which immediately reshape the output feed, which in turn generates new user actions. The pipeline branches into two parallel tracks — the <strong>recommendation track</strong> (RL + property cards) and the <strong>visualisation track</strong> (CV + Diffusion) — that converge on the property detail screen.
+  </p>
+
+  <div class="pipeline-flow">
+    <span class="pip-step">1. User Onboarding</span>
+    <span class="pip-arrow">→</span>
+    <span class="pip-step">2. Preference Quiz</span>
+    <span class="pip-arrow">→</span>
+    <span class="pip-step">3. RL Swipe Feed Served</span>
+    <span class="pip-arrow">→</span>
+    <span class="pip-step">4. Swipe Event Captured</span>
+    <span class="pip-arrow">→</span>
+    <span class="pip-step">5. Model Weight Update</span>
+    <span class="pip-arrow">→</span>
+    <span class="pip-step">6. Refined Feed Re-ranked</span>
+    <span class="pip-arrow">→</span>
+    <span class="pip-step">7. Interior Deep Dive (CV)</span>
+    <span class="pip-arrow">→</span>
+    <span class="pip-step">8. Furniture Prompt Input</span>
+    <span class="pip-arrow">→</span>
+    <span class="pip-step">9. Diffusion Render</span>
+    <span class="pip-arrow">→</span>
+    <span class="pip-step">10. Shortlist &amp; Decision</span>
+  </div>
+
+  <h3>Pipeline Stage Breakdown</h3>
+  <table>
+    <thead>
+      <tr><th style="width:32px">#</th><th style="width:195px">Stage</th><th>What Happens</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>User Onboarding &amp; Auth</td>
+        <td>User registers, authenticates (Firebase Auth), and completes a short onboarding quiz capturing budget range, preferred localities, home type (apartment / villa / studio), and style preferences. Quiz responses seed the initial RL model weights.</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>RL Feed Generation</td>
+        <td>The Go API gateway requests a ranked batch of property IDs from the Python RL inference server. The model scores candidates using the current user preference vector and returns a prioritised list; Redis caches the result for sub-50ms delivery to the Flutter client.</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>Swipe Event Streaming</td>
+        <td>Each left/right swipe is emitted as a lightweight event (user_id, property_id, action, timestamp) and streamed to the Go backend over a persistent WebSocket connection. Token-bucket rate limiting prevents abuse.</td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td>Model Weight Update</td>
+        <td>The Python RL service processes the swipe event, computes the reward signal (right = +1, left = −1, partial view = +0.2), and updates the contextual bandit / policy gradient weights. Updated embeddings are persisted to PostgreSQL and the user's Redis cache entry is invalidated.</td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td>Interior CV Analysis</td>
+        <td>On first ingestion of any property listing, the CV service asynchronously processes all interior images, extracts structured features (lighting, furniture condition, room dimensions), and writes results to the property metadata store. Output is displayed on the property detail card.</td>
+      </tr>
+      <tr>
+        <td>6</td>
+        <td>Diffusion Visualisation</td>
+        <td>User submits a natural-language furniture prompt or uploads an image. The inference server batches the request (up to 5 concurrent renders via dynamic batching), runs the ControlNet-guided Stable Diffusion in-painting pipeline, and streams the rendered image back to Flutter. Target latency: &lt; 5 seconds.</td>
+      </tr>
+      <tr>
+        <td>7</td>
+        <td>Shortlist &amp; Export</td>
+        <td>Saved/shortlisted properties are persisted to the user's profile in PostgreSQL. Users can share shortlists, compare side-by-side, and trigger a direct agent-contact CTA.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p style="font-size:8.5pt; color:var(--grey); margin-top:10px;">
+    State persistence: the user's preference embedding vector, swipe history, and shortlist are stored in PostgreSQL and hot-cached in Redis across all sessions, ensuring no context is lost between app restarts.
+  </p>
+
+  <div class="running-footer">
+    <span>MIC · AIML Build Cycle · Team 3</span>
+    <span>Page 4 of 11</span>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     PAGE 5 — SECTION 4: SYSTEM ARCHITECTURE
+══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="running-header">
+    <span>MIC · AIML Build Cycle · Team 3</span>
+    <span>PRISM — Project Document</span>
+  </div>
+
+  <div class="section-number">Section 04</div>
+  <h2>System Architecture</h2>
+
+  <p>
+    PRISM uses a <strong>microservices architecture</strong> with three clearly separated tiers: a cross-platform Flutter client, a Go API gateway handling all business logic and event streaming, and a Python-based AI inference cluster serving the RL, CV, and Diffusion models. Services communicate over REST (Flutter ↔ Go) and gRPC (Go ↔ Python). Redis sits between the gateway and the inference servers for sub-millisecond cache reads.
+  </p>
+
+  <!-- Architecture diagram -->
+  <div style="text-align:center; margin:12px 0 10px;">
+    <img src="image.png" alt="PRISM System Architecture Diagram" onerror="this.onerror=null; this.src='file:///C:/Users/1isha/Desktop/image.png';" style="width:100%; max-width:640px; max-height:270px; object-fit:contain; border-radius:8px; border:1px solid var(--rule); box-shadow:0 2px 8px rgba(0,0,0,0.08); background:#111; display:inline-block;" />
+    <div style="font-size:8pt; color:var(--grey); margin-top:5px; font-weight:600;">Figure 2 — PRISM System Architecture Diagram: Component & Discipline Integration</div>
+  </div>
+
+  <h3>Service / Component Breakdown</h3>
+  <ul class="arch-list">
+    <li><strong>Flutter Client</strong> Renders property cards, swipe gestures (60fps), property detail view, furniture prompt input, and visualisation gallery. Communicates with the Go gateway via REST + WebSocket.</li>
+    <li><strong>Go API Gateway</strong> Central request router and event hub. Handles authentication middleware, WebSocket swipe-event ingestion, token-bucket rate limiting, and gRPC forwarding to AI inference servers. Uses goroutines for high-concurrency swipe-stream processing.</li>
+    <li><strong>Redis Cache Layer</strong> Stores hot user preference vectors, ranked property feed batches, and session state. Provides atomic increment for rate-limiter counters. Sub-millisecond read latency.</li>
+    <li><strong>RL Inference Server (Python · FastAPI)</strong> Hosts the contextual bandit / policy-gradient model. Accepts swipe events, updates user embeddings, and returns re-ranked property IDs. Stateless horizontally scalable workers.</li>
+    <li><strong>CV Inference Server (Python · FastAPI)</strong> Runs the interior-feature extraction pipeline on property images. Operates asynchronously from the swipe feed to avoid blocking the user flow.</li>
+    <li><strong>Diffusion Inference Server (Python · FastAPI / gRPC)</strong> Hosts the ControlNet-guided Stable Diffusion model with dynamic request batching. Offloads tensor compute to GPU instances; returns rendered images to Go gateway which proxies to Flutter.</li>
+    <li><strong>PostgreSQL</strong> Primary relational store for user accounts, swipe history, preference embeddings, property listings, and shortlists.</li>
+    <li><strong>MongoDB</strong> Document store for unstructured property metadata (agent notes, CV feature JSON, image tags, background check reports).</li>
+    <li><strong>AWS S3 / Supabase Storage</strong> Object storage for property images, floor-plan PDFs, and Diffusion render outputs.</li>
+    <li><strong>Property Data Ingestion Pipeline</strong> Scheduled scrapers and third-party API integrations (MagicBricks, 99acres, government property registries) that populate and refresh the property listing database.</li>
+  </ul>
+
+  <div class="running-footer">
+    <span>MIC · AIML Build Cycle · Team 3</span>
+    <span>Page 5 of 11</span>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     PAGE 6 — SECTION 5: SUBSYSTEM INTEGRATION MAP
+══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="running-header">
+    <span>MIC · AIML Build Cycle · Team 3</span>
+    <span>PRISM — Project Document</span>
+  </div>
+
+  <div class="section-number">Section 05</div>
+  <h2>Subsystem Integration Map</h2>
+
+  <table>
+    <thead>
+      <tr><th style="width:200px">Subsystem</th><th>Integration Path</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Swipe &amp; Recommendation Loop</td>
+        <td class="sub-flow">
+          Flutter swipe gesture
+          <span class="arrow"> → </span> WebSocket event (user_id, property_id, action)
+          <span class="arrow"> → </span> Go Gateway (rate-limit check)
+          <span class="arrow"> → </span> gRPC to RL Inference Server
+          <span class="arrow"> → </span> Reward signal computed + embedding updated
+          <span class="arrow"> → </span> PostgreSQL embedding write
+          <span class="arrow"> → </span> Redis cache invalidated
+          <span class="arrow"> → </span> Next feed batch re-ranked &amp; cached
+          <span class="arrow"> → </span> Flutter receives refreshed card stack
+        </td>
+      </tr>
+      <tr>
+        <td>Interior CV Profiler</td>
+        <td class="sub-flow">
+          New property ingested by Data Pipeline
+          <span class="arrow"> → </span> Images stored to S3
+          <span class="arrow"> → </span> CV job enqueued (async task queue)
+          <span class="arrow"> → </span> CV Inference Server pulls images from S3
+          <span class="arrow"> → </span> CNN extracts lighting / condition / dimension features
+          <span class="arrow"> → </span> Structured JSON written to MongoDB
+          <span class="arrow"> → </span> Property card in PostgreSQL marked as CV-enriched
+          <span class="arrow"> → </span> Flutter renders interior feature badges on card
+        </td>
+      </tr>
+      <tr>
+        <td>Furniture Fit Visualiser</td>
+        <td class="sub-flow">
+          User enters furniture prompt or uploads image in Flutter
+          <span class="arrow"> → </span> Go Gateway forwards payload (prompt + room image URL)
+          <span class="arrow"> → </span> Diffusion Inference Server batches request
+          <span class="arrow"> → </span> ControlNet-guided in-painting runs on GPU
+          <span class="arrow"> → </span> Rendered image uploaded to S3
+          <span class="arrow"> → </span> Pre-signed S3 URL returned to Go Gateway
+          <span class="arrow"> → </span> Flutter displays rendered image in gallery viewer
+        </td>
+      </tr>
+      <tr>
+        <td>Spatial Blueprint Analyser</td>
+        <td class="sub-flow">
+          Floor-plan PDF / image uploaded by listing agent
+          <span class="arrow"> → </span> Stored to S3
+          <span class="arrow"> → </span> Blueprint Analyser (OpenCV + segmentation model) parses polygons &amp; dimensions
+          <span class="arrow"> → </span> Room topology JSON saved to MongoDB
+          <span class="arrow"> → </span> Furniture spatial calculator reads dimensions
+          <span class="arrow"> → </span> Flutter renders interactive blueprint overlay in property detail
+        </td>
+      </tr>
+      <tr>
+        <td>Holistic Property Card Assembly</td>
+        <td class="sub-flow">
+          Scheduled data ingestion (scrapers + APIs)
+          <span class="arrow"> → </span> Price history + locality safety + commute data fetched
+          <span class="arrow"> → </span> Background check flags retrieved
+          <span class="arrow"> → </span> All fields merged into Property Card record (PostgreSQL)
+          <span class="arrow"> → </span> Go Gateway reads card on feed request
+          <span class="arrow"> → </span> Flutter renders full card with all aggregated data
+        </td>
+      </tr>
+      <tr>
+        <td>Cold-Start Resolution</td>
+        <td class="sub-flow">
+          New user detected (zero swipe history)
+          <span class="arrow"> → </span> Onboarding quiz responses captured
+          <span class="arrow"> → </span> Responses mapped to synthetic preference archetype
+          <span class="arrow"> → </span> Pre-trained bandit weights loaded for that archetype
+          <span class="arrow"> → </span> Initial feed served immediately
+          <span class="arrow"> → </span> Real swipe events replace synthetic weights progressively
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="running-footer">
+    <span>MIC · AIML Build Cycle · Team 3</span>
+    <span>Page 6 of 11</span>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     PAGE 7 — SECTION 6: TEAM STRUCTURE & OWNERSHIP
+══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="running-header">
+    <span>MIC · AIML Build Cycle · Team 3</span>
+    <span>PRISM — Project Document</span>
+  </div>
+
+  <div class="section-number">Section 06</div>
+  <h2>Team Structure &amp; Ownership</h2>
+
+  <p>
+    Ownership follows a <strong>subsystem-paired model</strong>: each active member is the primary owner of one or two subsystems. The two project heads hold cross-cutting responsibility for architecture decisions, integration, and final deliverable quality.
+  </p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Member(s)</th>
+        <th>Primary Responsibility</th>
+        <th>Key Components Owned</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="lead-row">
+        <td>Ishan Mani Singh <span class="badge-lead">Lead</span></td>
+        <td>overall</td>
+        <td>UNDECIDED</td>
+      </tr>
+      <tr class="lead-row">
+        <td>Daksh Sablok <span class="badge-lead">Lead</span></td>
+        <td>overall</td>
+        <td>UNDECIDED</td>
+      </tr>
+      <tr>
+        <td>Daniel P Shejoy</td>
+        <td>overall</td>
+        <td>UNDECIDED</td>
+      </tr>
+      <tr>
+        <td>Vaanya Mohil</td>
+        <td>overall</td>
+        <td>UNDECIDED</td>
+      </tr>
+      <tr>
+        <td>Saatwik Gaur</td>
+        <td>overall</td>
+        <td>UNDECIDED</td>
+      </tr>
+      <tr>
+        <td>D V Anirudh</td>
+        <td>overall</td>
+        <td>UNDECIDED</td>
+      </tr>
+      <tr>
+        <td>Sai Prithvi R</td>
+        <td>overall</td>
+        <td>UNDECIDED</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Project Leadership</h3>
+  <table>
+    <thead>
+      <tr><th>Name</th><th>Role</th><th>Focus Areas</th></tr>
+    </thead>
+    <tbody>
+      <tr class="lead-row">
+        <td>Ishan Mani Singh</td>
+        <td>Project Head</td>
+        <td>ML architecture, RL strategy, inference engineering, technical review</td>
+      </tr>
+      <tr class="lead-row">
+        <td>Daksh Sablok</td>
+        <td>Project Head</td>
+        <td>Backend systems, API design, product roadmap, team coordination</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Full Team Roster</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Member Name</th>
+        <th>Role</th>
+        <th>Department</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="lead-row">
+        <td>1</td><td>Ishan Mani Singh <span class="badge-lead">Project Lead</span></td><td>Project Lead</td><td>AIML</td>
+      </tr>
+      <tr class="lead-row">
+        <td>2</td><td>Daksh Sablok <span class="badge-lead">Project Lead</span></td><td>Project Lead</td><td>AIML</td>
+      </tr>
+      <tr><td>3</td><td>Daniel P Shejoy</td><td>Member</td><td>AIML</td></tr>
+      <tr><td>4</td><td>Vaanya Mohil</td><td>Member</td><td>AIML</td></tr>
+      <tr><td>5</td><td>K Ajay Krishna</td><td>Member</td><td>AIML</td></tr>
+      <tr><td>6</td><td>Saatwik Gaur</td><td>Member</td><td>AIML</td></tr>
+      <tr><td>7</td><td>Ramyashri S</td><td>Member</td><td>AIML</td></tr>
+      <tr><td>8</td><td>D V Anirudh</td><td>Member</td><td>AIML</td></tr>
+      <tr><td>9</td><td>Harish Krishna J</td><td>Member</td><td>AIML</td></tr>
+      <tr><td>10</td><td>Sai Prithvi R</td><td>Member</td><td>AIML</td></tr>
+    </tbody>
+  </table>
+
+  <div class="running-footer">
+    <span>MIC · AIML Build Cycle · Team 3</span>
+    <span>Page 7 of 11</span>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     PAGE 8 — SECTION 7: TECHNOLOGY STACK
+══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="running-header">
+    <span>MIC · AIML Build Cycle · Team 3</span>
+    <span>PRISM — Project Document</span>
+  </div>
+
+  <div class="section-number">Section 07</div>
+  <h2>Technology Stack</h2>
+
+  <table>
+    <thead>
+      <tr><th style="width:195px">Layer</th><th>Choice</th><th>Rationale</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Frontend</td>
+        <td><span class="stack-pill">Flutter (Dart)</span></td>
+        <td>Native 60fps swipe animations via Impeller renderer; single codebase for Android, iOS, and Web. Ideal for gesture-heavy, visually rich card stacks.</td>
+      </tr>
+      <tr>
+        <td>Backend Gateway</td>
+        <td><span class="stack-pill">Golang</span></td>
+        <td>Lightweight goroutines handle thousands of concurrent WebSocket swipe streams with minimal memory overhead. Goroutine-per-connection model outperforms Node.js single-thread under spike load.</td>
+      </tr>
+      <tr>
+        <td>Cache / Rate Limiter</td>
+        <td><span class="stack-pill">Redis</span></td>
+        <td>Sub-millisecond read latency for hot user feed batches; atomic INCR commands power the token-bucket rate limiter without race conditions.</td>
+      </tr>
+      <tr>
+        <td>ML Framework</td>
+        <td><span class="stack-pill">Python</span> <span class="stack-pill">PyTorch</span></td>
+        <td>Industry standard for CV and Diffusion models. Unmatched pre-trained model availability on HuggingFace. Final models will be exported to ONNX / TensorRT for production speed-up.</td>
+      </tr>
+      <tr>
+        <td>RL Engine</td>
+        <td><span class="stack-pill">Ray RLlib</span> <span class="stack-pill">Contextual Bandit</span></td>
+        <td>Contextual multi-armed bandit provides fast, interpretable preference learning without requiring long episode rollouts. Ray RLlib scales the training loop across multiple CPU/GPU workers.</td>
+      </tr>
+      <tr>
+        <td>Computer Vision</td>
+        <td><span class="stack-pill">PyTorch</span> <span class="stack-pill">Torchvision</span> <span class="stack-pill">OpenCV</span></td>
+        <td>ResNet/EfficientNet backbones fine-tuned on interior image datasets for lighting, condition, and dimension regression. OpenCV handles blueprint polygon extraction.</td>
+      </tr>
+      <tr>
+        <td>Generative AI (Diffusion)</td>
+        <td><span class="stack-pill">Stable Diffusion</span> <span class="stack-pill">ControlNet</span> <span class="stack-pill">HuggingFace Diffusers</span></td>
+        <td>ControlNet depth/seg conditioning ensures furniture is placed with correct spatial perspective. HuggingFace Diffusers provides ready-to-use in-painting pipelines compatible with PyTorch.</td>
+      </tr>
+      <tr>
+        <td>Inference Serving</td>
+        <td><span class="stack-pill">FastAPI</span> <span class="stack-pill">gRPC</span></td>
+        <td>FastAPI for rapid iteration and REST-compatible model endpoints; gRPC for low-latency Go → Python calls on the critical swipe-event path. Path to NVIDIA Triton for GPU batching in production.</td>
+      </tr>
+      <tr>
+        <td>Primary Database</td>
+        <td><span class="stack-pill">PostgreSQL</span></td>
+        <td>Stores user accounts, swipe history, preference embeddings (pgvector extension), property listings, and shortlists. ACID guarantees for financial and legal data fields on property cards.</td>
+      </tr>
+      <tr>
+        <td>Document Store</td>
+        <td><span class="stack-pill">MongoDB</span></td>
+        <td>Flexible JSON documents for unstructured property metadata: CV feature blobs, agent notes, background check reports, and image tag arrays that vary per property.</td>
+      </tr>
+      <tr>
+        <td>Storage</td>
+        <td><span class="stack-pill">AWS S3 / Supabase Storage</span></td>
+        <td>Object storage for property images, floor-plan PDFs, and diffusion render outputs. Pre-signed URLs enable direct client download without proxying through Go gateway.</td>
+      </tr>
+      <tr>
+        <td>Authentication</td>
+        <td><span class="stack-pill">Firebase Auth</span></td>
+        <td>Handles email/password and OAuth (Google, Apple) sign-in. JWTs validated at Go gateway middleware.</td>
+      </tr>
+      <tr>
+        <td>Deployment</td>
+        <td><span class="stack-pill">AWS EC2</span> <span class="stack-pill">GCP GPU Instances</span></td>
+        <td>Go gateway on CPU-optimised EC2; Diffusion and CV servers on GPU instances (NVIDIA A10G / T4). Docker + GitHub Actions CI/CD.</td>
+      </tr>
+      <tr>
+        <td>Data Tooling</td>
+        <td><span class="stack-pill">NumPy</span> <span class="stack-pill">Pandas</span> <span class="stack-pill">Matplotlib</span> <span class="stack-pill">Scrapy</span></td>
+        <td>Data cleaning, EDA on property datasets, synthetic data generation, and web scraping for listings ingestion.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="running-footer">
+    <span>MIC · AIML Build Cycle · Team 3</span>
+    <span>Page 8 of 11</span>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     PAGE 9 — SECTION 8: MILESTONES & TIMELINE
+══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="running-header">
+    <span>MIC · AIML Build Cycle · Team 3</span>
+    <span>PRISM — Project Document</span>
+  </div>
+
+  <div class="section-number">Section 08</div>
+  <h2>Milestones &amp; Development Timeline</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:120px">Phase</th>
+        <th style="width:140px">Focus</th>
+        <th>Key Deliverables</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="phase-badge">Phase 1</span><br/>Weeks 1 – 3</td>
+        <td>Foundation &amp; Setup</td>
+        <td>
+          • PostgreSQL + MongoDB schemas designed and seeded<br/>
+          • Go API gateway skeleton with auth middleware (Firebase)<br/>
+          • Flutter app scaffold with navigation and swipe gesture prototype<br/>
+          • S3 buckets and CI/CD pipeline (GitHub Actions + Docker) configured<br/>
+          • Synthetic property preference dataset generated (1,000 buyer personas)
+        </td>
+      </tr>
+      <tr>
+        <td><span class="phase-badge">Phase 2</span><br/>Weeks 4 – 7</td>
+        <td>Core AI Build</td>
+        <td>
+          • Contextual bandit RL model trained on synthetic data; swipe event loop end-to-end<br/>
+          • CV interior-feature extraction CNN trained and served via FastAPI<br/>
+          • Holistic Property Card assembled (price history + locality + commute + background check APIs integrated)<br/>
+          • Flutter property card UI complete with all data fields<br/>
+          • Redis caching and rate-limiter implemented on Go gateway
+        </td>
+      </tr>
+      <tr>
+        <td><span class="phase-badge">Phase 3</span><br/>Weeks 8 – 10</td>
+        <td>Integration &amp; Visualisation</td>
+        <td>
+          • Stable Diffusion in-painting pipeline with ControlNet running on GPU inference server<br/>
+          • Furniture prompt UI and gallery viewer integrated in Flutter<br/>
+          • Blueprint Analyser (OpenCV + segmentation) parsing floor-plan images<br/>
+          • Spatial furniture-fit calculator live<br/>
+          • Full pipeline integration test: swipe → RL update → CV enrichment → Diffusion render
+        </td>
+      </tr>
+      <tr>
+        <td><span class="phase-badge">Phase 4</span><br/>Weeks 11 – 13</td>
+        <td>Polish, Optimisation &amp; Demo</td>
+        <td>
+          • RL model accuracy tuned on real (team-generated) swipe data; A/B test vs. cold-start baseline<br/>
+          • Diffusion inference latency optimised (ONNX / TensorRT export); target &lt; 5 s render time<br/>
+          • Flutter UI polished: animations, error states, accessibility<br/>
+          • Demo dataset curated: 50+ real property listings with interior images and floor plans<br/>
+          • End-to-end demo rehearsed; documentation and slide deck finalised
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="running-footer">
+    <span>MIC · AIML Build Cycle · Team 3</span>
+    <span>Page 9 of 11</span>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     PAGE 10 — SECTION 9: RISKS & MITIGATIONS
+══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="running-header">
+    <span>MIC · AIML Build Cycle · Team 3</span>
+    <span>PRISM — Project Document</span>
+  </div>
+
+  <div class="section-number">Section 09</div>
+  <h2>Risks &amp; Mitigations</h2>
+
+  <table>
+    <thead>
+      <tr><th>Risk</th><th>Mitigation</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          <span class="risk-tag">Technical</span><br/>
+          <strong>RL cold-start yields irrelevant first feed</strong><br/>
+          <span style="font-size:8.5pt; color:var(--grey);">New users with zero swipe history may receive generic or poor matches, causing early drop-off before the model can learn.</span>
+        </td>
+        <td>Pre-train the bandit on a diverse synthetic dataset covering 1,000 buyer personas. Supplement with a mandatory 5-question onboarding quiz that maps directly to archetype-weight initialisation. Real swipe data progressively replaces synthetic weights within the first session.</td>
+      </tr>
+      <tr>
+        <td>
+          <span class="risk-tag">Performance</span><br/>
+          <strong>Diffusion render latency exceeds user tolerance</strong><br/>
+          <span style="font-size:8.5pt; color:var(--grey);">Stable Diffusion inference on a single GPU can take 10–30 s; concurrent requests compound this significantly.</span>
+        </td>
+        <td>Implement dynamic request batching (up to 5 renders per GPU pass) to maximise GPU utilisation. Export the model to TensorRT for 3–5× speed-up. Display a real-time progress animation and stream partial outputs to the Flutter UI so wait time feels shorter. Queue overflow triggers a polite retry message rather than a timeout error.</td>
+      </tr>
+      <tr>
+        <td>
+          <span class="risk-tag">Data</span><br/>
+          <strong>Property listing data availability and freshness</strong><br/>
+          <span style="font-size:8.5pt; color:var(--grey);">Real estate APIs in India have restrictive TOS; scrapers may break on site updates, leaving the demo with stale or sparse data.</span>
+        </td>
+        <td>Build and maintain scrapers for at least 2 independent sources (MagicBricks, 99acres). Additionally generate 50+ rich synthetic listings with real interior images (sourced from public domain / Unsplash) for a guaranteed demo dataset. Abstract the data layer so any source can be swapped without touching the AI stack.</td>
+      </tr>
+      <tr>
+        <td>
+          <span class="risk-tag">ML</span><br/>
+          <strong>CV model generalises poorly to low-quality listing photos</strong><br/>
+          <span style="font-size:8.5pt; color:var(--grey);">Real estate photos vary enormously in quality, angle, and lighting; a CNN trained on clean data may fail on dark or blurry images.</span>
+        </td>
+        <td>Apply aggressive data augmentation during training (brightness jitter, blur, random crop, compression artefacts). Add a quality-gate that flags images below a sharpness threshold and falls back to a "CV unavailable" label rather than hallucinating features. Track per-image confidence scores and surface low-confidence results to the user transparently.</td>
+      </tr>
+      <tr>
+        <td>
+          <span class="risk-tag">Timeline</span><br/>
+          <strong>Diffusion + RL + CV integration complexity causes schedule slip</strong><br/>
+          <span style="font-size:8.5pt; color:var(--grey);">Three parallel AI workstreams must converge in Phase 3; any one delay cascades to the demo.</span>
+        </td>
+        <td>Define strict contract interfaces (gRPC proto files) between Go gateway and each Python service in Week 1, enabling parallel development with mock servers. Phase 2 milestone review at Week 7 gates Phase 3 start; if any module is at risk, scope is cut (Diffusion deferred to Phase 4 if necessary) rather than slipping the demo date.</td>
+      </tr>
+      <tr>
+        <td>
+          <span class="risk-tag">Team</span><br/>
+          <strong>Key member unavailability</strong><br/>
+          <span style="font-size:8.5pt; color:var(--grey);">With multiple inactive members, critical paths could become bottlenecks if an active member becomes unavailable mid-build.</span>
+        </td>
+        <td>All code is documented and pushed to the shared GitHub repository weekly. Each active member pair-reviews at least one other subsystem so knowledge is never siloed. Project leads can step into any subsystem as backup. Inactive members are re-engaged at Phase 2 review with clearly scoped, bounded tasks.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="running-footer">
+    <span>MIC · AIML Build Cycle · Team 3</span>
+    <span>Page 10 of 11</span>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     PAGE 11 — SECTION 10: SUCCESS METRICS
+══════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="running-header">
+    <span>MIC · AIML Build Cycle · Team 3</span>
+    <span>PRISM — Project Document</span>
+  </div>
+
+  <div class="section-number">Section 10</div>
+  <h2>Success Metrics</h2>
+
+  <p>
+    All metrics below are measurable by demo day using the team-generated swipe sessions and the curated 50-property demo dataset. "Indicative" targets will be refined once the end-to-end pipeline runs for the first time.
+  </p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:245px">Metric</th>
+        <th>Target (Indicative)</th>
+        <th style="width:130px">Subsystem</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>RL Preference Alignment</strong><br/><span style="font-size:8pt; color:var(--grey);">% of top-10 recommended properties that match a tester's stated preferences after N swipes</span></td>
+        <td>&gt; 80% alignment after 20 swipes per user</td>
+        <td>RL Engine</td>
+      </tr>
+      <tr>
+        <td><strong>Furniture Render Latency</strong><br/><span style="font-size:8pt; color:var(--grey);">Wall-clock time from prompt submission to first image displayed in Flutter</span></td>
+        <td>&lt; 5 seconds (P95) on GPU instance</td>
+        <td>Diffusion Inference</td>
+      </tr>
+      <tr>
+        <td><strong>CV Interior Feature Accuracy</strong><br/><span style="font-size:8pt; color:var(--grey);">Accuracy of lighting-score and furniture-condition labels vs. human ground-truth annotations on test set</span></td>
+        <td>&gt; 85% accuracy on 200-image test set</td>
+        <td>Computer Vision</td>
+      </tr>
+      <tr>
+        <td><strong>Swipe Feed Round-trip Latency</strong><br/><span style="font-size:8pt; color:var(--grey);">Time from swipe event sent to next card stack received by Flutter client</span></td>
+        <td>&lt; 100 ms (P95) under 50 concurrent users</td>
+        <td>Go Gateway + Redis</td>
+      </tr>
+      <tr>
+        <td><strong>Cold-Start Quality Score</strong><br/><span style="font-size:8pt; color:var(--grey);">Average tester-rated relevance (1–5) of the very first feed shown before any swipes</span></td>
+        <td>≥ 3.5 / 5 average across 5 blind testers</td>
+        <td>Cold-Start Engine</td>
+      </tr>
+      <tr>
+        <td><strong>Blueprint Dimension Parse Accuracy</strong><br/><span style="font-size:8pt; color:var(--grey);">% of rooms correctly segmented and labelled from floor-plan images</span></td>
+        <td>&gt; 80% on 30 curated floor-plan test images</td>
+        <td>Blueprint Analyser</td>
+      </tr>
+      <tr>
+        <td><strong>Demo Session Engagement</strong><br/><span style="font-size:8pt; color:var(--grey);">Average active time per live demo session on the platform</span></td>
+        <td>&gt; 8 minutes average session duration</td>
+        <td>Overall Product</td>
+      </tr>
+      <tr>
+        <td><strong>End-to-End Pipeline Uptime</strong><br/><span style="font-size:8pt; color:var(--grey);">% of time all services (Go, RL, CV, Diffusion) are simultaneously healthy during demo window</span></td>
+        <td>100% uptime during the 30-minute demo window</td>
+        <td>Infrastructure</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="margin-top:22px; background:#F3F5F8; border-left: 4px solid var(--blue); border-radius:4px; padding:12px 14px; font-size:9pt; color:var(--slate);">
+    <strong style="color:var(--navy);">Competitive Advantage Summary</strong><br/>
+    PRISM's defensible moat is the combination of three capabilities no existing Indian real estate platform offers simultaneously: a swipe-driven RL recommendation engine that learns implicitly, a computer vision interior intelligence layer that provides objective room condition data, and a generative AI furniture visualiser that lets buyers see their life in a new home before visiting. Each capability alone is novel in this market; together they form a uniquely sticky product.
+  </div>
+
+  <div style="margin-top: 30px; text-align:center; border-top: 1px solid var(--rule); padding-top: 14px;">
+    <div style="font-size:20pt; font-weight:900; color:var(--navy); letter-spacing:3px;">PRISM</div>
+    <div style="font-size:8pt; color:var(--grey); letter-spacing:1px; text-transform:uppercase; margin-top:2px;">Property Recommendation &amp; Interior Space Matcher</div>
+    <div style="font-size:8pt; color:var(--grey); margin-top:6px;">MIC AIML Build Cycle &nbsp;·&nbsp; Team 3 &nbsp;·&nbsp; Project Heads: Ishan Mani Singh &amp; Daksh Sablok</div>
+    <div style="font-size:7.5pt; color:var(--grey); margin-top:3px;">Prepared as the formal Team 3 project document for the MIC AIML Build Cycle · October 2026</div>
+  </div>
+
+  <div class="running-footer">
+    <span>MIC · AIML Build Cycle · Team 3</span>
+    <span>Page 11 of 11</span>
+  </div>
+</div>
+
+</body>
+</html>
